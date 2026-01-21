@@ -65,9 +65,29 @@ class Parser(object):
             self.config_header.pop()    # we need this 2nd pop to close the config vdom wihout next properly
         self.config_header.pop()
 
-	# prase FortiGate configuration
+	# parse FortiGate configuration
+    def parse_file(self, file_path):
+        with open(file_path) as f:
+            gen_lines = (line.rstrip() for line in f if line.strip())
+            previous_method = None
+            for line in gen_lines:
+                fields = line.strip().split(' ')
+
+                valid_fields= ['config', 'edit', 'set', 'unset', 'next', 'end']
+                if fields[0] in valid_fields:
+                    method = fields[0]
+                    previous_method = method
+                    # call parse function according to the verb
+                    getattr(Parser, 'parse_' + method)(self, fields)
+                elif previous_method == 'set':  # parse multiline value in set
+                    getattr(Parser, 'parse_' + 'set_multiline')(self, fields)
+                elif line.startswith('#'):      # parse comment line (configuration headers)
+                    getFromDict(self.section_dict, [line])
+
+        return self.section_dict
+    
     def parse_text(self, text):
-        gen_lines = (line.rstrip() for line in text if line.strip())
+        gen_lines = (line.rstrip() for line in text.split('\n') if line.strip())
         previous_method = None
         for line in gen_lines:
             fields = line.strip().split(' ')
